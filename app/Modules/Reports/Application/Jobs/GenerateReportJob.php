@@ -75,6 +75,12 @@ class GenerateReportJob implements ShouldQueue
 
             $reports->setResultPath($this->reportId, $path);
 
+            Cache::tags(['reports', "report:{$this->reportId}"])->put(
+                "report:{$this->reportId}:result_path",
+                $path,
+                3600
+            );
+
             $reports->updateStatus($this->reportId, ReportStatusEnum::Done);
 
             Cache::tags(['reports', "report:{$this->reportId}"])->put(

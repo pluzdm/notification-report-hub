@@ -2,5 +2,9 @@
 
 use App\Modules\Reports\Http\Controllers\ReportController;
 
-Route::post('/reports', [ReportController::class, 'store']);
-Route::get('/reports/{id}', [ReportController::class, 'show']);
+
+Route::prefix('reports')->group(function () {
+    Route::post('', [ReportController::class, 'store']);
+    Route::get('{id}', [ReportController::class, 'show']);
+    Route::get('{id}/download', [ReportController::class, 'download']);
+});

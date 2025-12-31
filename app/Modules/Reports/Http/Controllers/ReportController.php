@@ -5,6 +5,7 @@ namespace App\Modules\Reports\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Reports\Application\DTO\CreateReportDTO;
 use App\Modules\Reports\Application\UseCases\CreateReportUseCase;
+use App\Modules\Reports\Application\UseCases\DownloadReportUseCase;
 use App\Modules\Reports\Application\UseCases\GetReportStatusUseCase;
 use App\Modules\Reports\Http\Requests\CreateReportRequest;
 use Illuminate\Support\Str;
@@ -38,5 +39,10 @@ class ReportController extends Controller
         }
 
         return response()->json($data);
+    }
+
+    public function download(int $id, DownloadReportUseCase $useCase)
+    {
+        return $useCase->execute($id);
     }
 }
