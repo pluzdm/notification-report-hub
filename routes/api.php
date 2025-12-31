@@ -7,4 +7,5 @@ Route::prefix('reports')->group(function () {
     Route::post('', [ReportController::class, 'store']);
     Route::get('{id}', [ReportController::class, 'show']);
     Route::get('{id}/download', [ReportController::class, 'download']);
+    Route::get('{id}/result', [ReportController::class, 'result']);
 });
