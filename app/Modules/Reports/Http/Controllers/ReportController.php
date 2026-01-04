@@ -4,14 +4,12 @@ namespace App\Modules\Reports\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Reports\Application\DTO\CreateReportDTO;
-use App\Modules\Reports\Application\Exceptions\ReportNotFoundException;
-use App\Modules\Reports\Application\Exceptions\ReportNotReadyException;
-use App\Modules\Reports\Application\Exceptions\ReportResultMissingException;
 use App\Modules\Reports\Application\UseCases\CreateReportUseCase;
 use App\Modules\Reports\Application\UseCases\DownloadReportUseCase;
 use App\Modules\Reports\Application\UseCases\GetReportResultUseCase;
 use App\Modules\Reports\Application\UseCases\GetReportStatusUseCase;
 use App\Modules\Reports\Http\Requests\CreateReportRequest;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ReportController extends Controller
@@ -47,23 +45,20 @@ class ReportController extends Controller
 
     public function download(int $id, DownloadReportUseCase $useCase)
     {
-        return $useCase->execute($id);
+        $dto = $useCase->execute($id);
+        return Storage::disk($dto->disk)->download(
+            $dto->path,
+            $dto->downloadName,
+            ['Content-Type' => $dto->contentType]
+        );
     }
 
     public function result(int $id, GetReportResultUseCase $useCase)
     {
-        try {
-            $dto = $useCase->execute($id);
+        $dto = $useCase->execute($id);
 
-            return response($dto->content, 200, [
-                'Content-Type' => $dto->mime,
-            ]);
-        } catch (ReportNotFoundException) {
-            return response()->json(['message' => 'Not found'], 404);
-        } catch (ReportNotReadyException $e) {
-            return response()->json(['message' => $e->getMessage()], 409);
-        } catch (ReportResultMissingException) {
-            return response()->json(['message' => 'Result missing'], 500);
-        }
+        return response($dto->content, 200, [
+            'Content-Type' => $dto->mime,
+        ]);
     }
 }

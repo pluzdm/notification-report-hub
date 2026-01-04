@@ -2,69 +2,72 @@
 
 namespace App\Modules\Reports\Application\UseCases;
 
+use App\Modules\Reports\Application\DTO\DownloadReportDTO;
+use App\Modules\Reports\Application\Exceptions\ReportNotFoundException;
+use App\Modules\Reports\Application\Exceptions\ReportNotReadyException;
+use App\Modules\Reports\Application\Exceptions\ReportResultMissingException;
 use App\Modules\Reports\Domain\Contracts\ReportRepositoryInterface;
 use App\Modules\Reports\Domain\Enums\ReportStatusEnum;
-use Illuminate\Http\Response;
+use Illuminate\Cache\TaggedCache;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Support\Str;
 
 final readonly class DownloadReportUseCase
 {
+    private const DISK = 'local';
+    private const REPORTS_PREFIX = 'reports/';
+
     public function __construct(
         private ReportRepositoryInterface $reports,
     ) {}
 
-    public function execute(int $id): StreamedResponse
+    public function execute(int $id): DownloadReportDTO
     {
-        $status = Cache::tags(['reports', "report:{$id}"])->get("report:{$id}:status");
-
-        $report = null;
-
+        $status = Cache::tags(['reports'])->get("report:{$id}:status");
         if (!$status) {
-            $report = $this->reports->findById($id);
-
-            if (!$report) {
-                abort(Response::HTTP_NOT_FOUND, 'Report not found');
-            }
-
+            $report = $this->getReportOrFail($id);
             $status = $report['status'] ?? null;
         }
 
         if ($status !== ReportStatusEnum::Done->value) {
-            abort(Response::HTTP_CONFLICT, 'Report is not ready yet');
+            throw new ReportNotReadyException($id, $status);
         }
 
-        $path = Cache::tags(['reports', "report:{$id}"])->get("report:{$id}:result_path");
-
+        $path = Cache::tags(['reports'])->get("report:{$id}:result_path")
+            ?? ($this->getReportOrFail($id)['result_path'] ?? null);
         if (!$path) {
-            $report ??= $this->reports->findById($id);
-
-            if (! $report) {
-                abort(Response::HTTP_NOT_FOUND, 'Report not found');
-            }
-
-            $path = $report['result_path'] ?? null;
+            throw new ReportResultMissingException($id);
         }
 
-        if (!$path) {
-            abort(Response::HTTP_CONFLICT, 'Report has no result file');
+        if (!Str::startsWith($path, 'reports/')) {
+            throw new ReportResultMissingException($id);
         }
 
-        if (!str_starts_with($path, 'reports/')) {
-            abort(Response::HTTP_CONFLICT, 'Invalid report path');
+        if (Str::contains($path, '..')) {
+            throw new ReportResultMissingException($id);
         }
 
         if (!Storage::disk('local')->exists($path)) {
-            abort(Response::HTTP_NOT_FOUND, 'Report file not found');
+            throw new ReportNotFoundException($id);
         }
 
-        $downloadName = "report-{$id}.json";
-
-        return Storage::disk('local')->download(
-            $path,
-            $downloadName,
-            ['Content-Type' => 'application/json; charset=UTF-8']
+        return new DownloadReportDTO(
+            disk: 'local',
+            path: $path,
+            downloadName: "report-{$id}.json",
+            contentType: 'application/json; charset=UTF-8',
         );
+    }
+
+    private function getReportOrFail(int $id): array
+    {
+        $report = $this->reports->findById($id);
+
+        if (!$report) {
+            throw new ReportNotFoundException($id);
+        }
+
+        return $report;
     }
 }
