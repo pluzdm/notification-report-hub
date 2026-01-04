@@ -3,9 +3,9 @@
 namespace App\Modules\Reports\Application\UseCases;
 
 use App\Modules\Reports\Application\DTO\CreateReportDTO;
-use App\Modules\Reports\Application\Jobs\GenerateReportJob;
 use App\Modules\Reports\Domain\Contracts\ReportRepositoryInterface;
 use App\Modules\Reports\Domain\Enums\ReportStatusEnum;
+use App\Modules\Reports\Infrastructure\Queue\Jobs\GenerateReportJob;
 use Illuminate\Support\Facades\Cache;
 
 final readonly class CreateReportUseCase
